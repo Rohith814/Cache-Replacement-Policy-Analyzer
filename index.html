@@ -1,0 +1,96 @@
+function simulate(refs, size, policy) {
+    let cache = [];
+    let queue = [];
+    let freq = {};
+    let hits = 0;
+    let misses = 0;
+    let steps = [];
+
+    refs.forEach((x, i) => {
+        let hit = cache.includes(x);
+        let replaced = "-";
+
+        if (hit) {
+            hits++;
+
+            if (policy === "LRU") {
+                cache = cache.filter(v => v !== x);
+                cache.push(x);
+            }
+
+            if (policy === "LFU") {
+                freq[x] = (freq[x] || 0) + 1;
+            }
+
+        } else {
+            misses++;
+
+            if (cache.length < size) {
+                cache.push(x);
+                queue.push(x);
+
+            } else {
+                let victim;
+
+                if (policy === "FIFO") {
+                    victim = queue.shift();
+                }
+
+                else if (policy === "LRU") {
+                    victim = cache[0];
+                }
+
+                else if (policy === "LFU") {
+                    let min = Math.min(
+                        ...cache.map(v => freq[v] || 0)
+                    );
+
+                    victim = cache.find(
+                        v => (freq[v] || 0) === min
+                    );
+
+                    cache = cache.filter(v => v !== victim);
+                    queue = queue.filter(v => v !== victim);
+                }
+
+                else if (policy === "OPTIMAL") {
+                    let future = refs.slice(i + 1);
+
+                    let distances = cache.map(v => {
+                        let p = future.indexOf(v);
+                        return p === -1 ? Infinity : p;
+                    });
+
+                    victim =
+                        cache[distances.indexOf(
+                            Math.max(...distances)
+                        )];
+
+                    cache = cache.filter(v => v !== victim);
+                    queue = queue.filter(v => v !== victim);
+                }
+
+                replaced = victim;
+
+                cache.push(x);
+                queue.push(x);
+            }
+
+            freq[x] = (freq[x] || 0) + 1;
+        }
+
+        steps.push({
+            step: i + 1,
+            ref: x,
+            cache: [...cache],
+            hit: hit,
+            replaced: replaced
+        });
+    });
+
+    return {
+        hits,
+        misses,
+        steps
+    };
+}
